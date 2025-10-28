@@ -1,0 +1,167 @@
+import React from "react";
+
+interface TableProps {
+  columns: string[]; // An array of column names
+  data: { [key: string]: string | number }[]; // The data that will populate the table rows
+  onDelete?: (id: string) => void;
+  onEdit?: (id: string) => void;
+  editName?: string;
+  editHeadName?: string; // Name for the Edit column header
+  editStatus?: boolean;
+  deleteStatus?: boolean;
+}
+
+const PgTable: React.FC<TableProps> = ({
+  columns,
+  data,
+  editStatus = false,
+  deleteStatus = false,
+  editName,
+  editHeadName = "Edit", // Default to "Edit" if not provided
+  onDelete,
+  onEdit,
+}) => {
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full table-auto border-collapse border border-gray-300">
+        <thead>
+          <tr className="bg-blue-100">
+            {columns.map((column, index) => (
+              <th
+                key={index}
+                className="border border-gray-300 px-4 py-2 text-center"
+              >
+                {column}
+              </th>
+            ))}
+            {editStatus && (
+              <th className="border border-gray-300 px-4 py-2 text-center">
+                {editHeadName}
+              </th>
+            )}
+            {deleteStatus && (
+              <th className="border border-gray-300 px-4 py-2 text-center">
+                Delete
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, index) => (
+            <tr key={index} className="hover:bg-gray-100">
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.No}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.pgId}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.name}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.price}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.type}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.address}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.image1 ? (
+                  <img
+                    src={typeof row.image1 === "string" ? row.image1 : ""}
+                    alt="Image"
+                    className="w-36 h-16 object-cover mx-auto"
+                  />
+                ) : (
+                  "NA"
+                )}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.image2 ? (
+                  <img
+                    src={typeof row.image2 === "string" ? row.image2 : ""}
+                    alt="Image"
+                    className="w-36 h-16 object-cover mx-auto"
+                  />
+                ) : (
+                  "NA"
+                )}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.image3 ? (
+                  <img
+                    src={typeof row.image3 === "string" ? row.image3 : ""}
+                    alt="Image"
+                    className="w-36 h-16 object-cover mx-auto"
+                  />
+                ) : (
+                  "NA"
+                )}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.image4 ? (
+                  <img
+                    src={typeof row.image4 === "string" ? row.image4 : ""}
+                    alt="Image"
+                    className="w-36 h-16 object-cover mx-auto"
+                  />
+                ) : (
+                  "NA"
+                )}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.image5 ? (
+                  <img
+                    src={typeof row.image5 === "string" ? row.image5 : ""}
+                    alt="Image"
+                    className="w-36 h-16 object-cover mx-auto"
+                  />
+                ) : (
+                  "NA"
+                )}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.status}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.isActive}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.createdAt}
+              </td>
+              <td className="border border-gray-300 px-4 py-2 text-center">
+                {row.updatedAt}
+              </td>
+              {editStatus && onEdit && (
+                <td className="border border-gray-300 px-4 py-2 text-center">
+                  <button
+                    onClick={() => onEdit(String(row.pgId))}
+                    className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-400"
+                    aria-label={`Edit category ${row.name}`}
+                  >
+                    {editName || "Edit"}
+                  </button>
+                </td>
+              )}
+              {deleteStatus && onDelete && (
+                <td className="border border-gray-300 px-4 py-2 text-center">
+                  <button
+                    onClick={() => onDelete(String(row.pgId))}
+                    className="px-4 py-2 bg-red-600 text-white rounded shadow hover:bg-red-500"
+                    aria-label={`Delete category ${row.name}`}
+                  >
+                    Delete
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default PgTable;
