@@ -73,6 +73,10 @@ app.use(express.json());
 
 app.use(morgan("dev"));
 
+app.get("/", (req, res) => {
+  res.status(200).json({ status: "success", message: "PG Management API is running" });
+});
+
 import notificationRoutes from "./Routes/Notification.route";
 
 app.use("/api/register", registerRoutes);
