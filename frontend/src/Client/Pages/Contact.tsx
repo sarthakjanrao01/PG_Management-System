@@ -64,7 +64,7 @@ const ContactUs: React.FC = () => {
           </div>
           <div className="flex flex-col items-center">
             <FaEnvelope className="text-blue-500 w-10 h-10 mb-2" />
-            <p className="font-semibold">matangievent@gmail.com</p>
+            <p className="font-semibold">support@pgmanagement.com</p>
           </div>
         </div>
 

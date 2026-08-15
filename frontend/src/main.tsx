@@ -1,7 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
-// import App from './App.tsx'
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Dashboard from "./Admin/Pages/Dashboard.tsx";
 import Category from "./Admin/Pages/Category.tsx";
@@ -45,6 +44,34 @@ import UserPgBooking from "./Client/Pages/User/UserPgBooking.tsx";
 import ProfileApproval from "./Admin/Pages/ProfileApproval.tsx";
 import ContactUs from "./Admin/Pages/AdminContactUs.tsx";
 
+import ProtectedRoute from "./Shared/Components/ProtectedRoute.tsx";
+
+// SuperAdmin Module
+import SuperAdminDashboard from "./Admin/Pages/SuperAdminDashboard.tsx";
+
+// Owner Modules
+import OwnerDashboard from "./Client/Pages/Owner/OwnerDashboard.tsx";
+import AddRoomOwner from "./Client/Pages/Owner/AddRoomOwner.tsx";
+import RoomManagement from "./Client/Pages/Owner/RoomManagement.tsx";
+import TenantManagement from "./Client/Pages/Owner/TenantManagement.tsx";
+import MessManagementOwner from "./Client/Pages/Owner/MessManagementOwner.tsx";
+import MaidManagementOwner from "./Client/Pages/Owner/MaidManagementOwner.tsx";
+import OwnerComplaints from "./Client/Pages/Owner/OwnerComplaints.tsx";
+
+// User Modules
+import UserDashboard from "./Client/Pages/User/UserDashboard.tsx";
+import MyRoomDetails from "./Client/Pages/User/MyRoomDetails.tsx";
+import UserHistory from "./Client/Pages/User/UserHistory.tsx";
+import UserMessDetails from "./Client/Pages/User/UserMessDetails.tsx";
+import UserPayments from "./Client/Pages/User/UserPayments.tsx";
+import UserComplaints from "./Client/Pages/User/UserComplaints.tsx";
+import UserHelp from "./Client/Pages/User/UserHelp.tsx";
+
+// Maid Modules
+import MaidDashboard from "./Client/Pages/Maid/MaidDashboard.tsx";
+import MaidTasks from "./Client/Pages/Maid/MaidTasks.tsx";
+import MaidSalaryHistory from "./Client/Pages/Maid/MaidSalaryHistory.tsx";
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -81,7 +108,7 @@ const router = createBrowserRouter([
       },
       {
         path: "/addpg",
-        element: <AddPg />, //// check api is calling so in network data seems seen
+        element: <AddPg />,
       },
       {
         path: "/recievedpgbooking",
@@ -113,7 +140,163 @@ const router = createBrowserRouter([
       },
       {
         path: "/maidconfirmbooking",
-        element: <MaidConfirmBooking />, ////////
+        element: <MaidConfirmBooking />,
+      },
+      // SuperAdmin Route
+      {
+        path: "/superadmin/dashboard",
+        element: (
+          <ProtectedRoute allowedRoles={["superadmin"]}>
+            <SuperAdminDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      // Owner Routes
+      {
+        path: "/owner/dashboard",
+        element: (
+          <ProtectedRoute allowedRoles={["owner", "pgowner", "admin"]}>
+            <OwnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/owner/add-room",
+        element: (
+          <ProtectedRoute allowedRoles={["owner", "pgowner", "admin"]}>
+            <AddRoomOwner />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/owner/rooms",
+        element: (
+          <ProtectedRoute allowedRoles={["owner", "pgowner", "admin"]}>
+            <RoomManagement />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/owner/tenants",
+        element: (
+          <ProtectedRoute allowedRoles={["owner", "pgowner", "admin"]}>
+            <TenantManagement />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/owner/mess",
+        element: (
+          <ProtectedRoute allowedRoles={["owner", "pgowner", "admin"]}>
+            <MessManagementOwner />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/owner/maids",
+        element: (
+          <ProtectedRoute allowedRoles={["owner", "pgowner", "admin"]}>
+            <MaidManagementOwner />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/owner/complaints",
+        element: (
+          <ProtectedRoute allowedRoles={["owner", "pgowner", "admin"]}>
+            <OwnerComplaints />
+          </ProtectedRoute>
+        ),
+      },
+      // User Routes
+      {
+        path: "/user/dashboard",
+        element: (
+          <ProtectedRoute allowedRoles={["user"]}>
+            <UserDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/user/my-room",
+        element: (
+          <ProtectedRoute allowedRoles={["user"]}>
+            <MyRoomDetails />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/user/history",
+        element: (
+          <ProtectedRoute allowedRoles={["user"]}>
+            <UserHistory />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/user/room",
+        element: (
+          <ProtectedRoute allowedRoles={["user"]}>
+            <MyRoomDetails />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/user/mess",
+        element: (
+          <ProtectedRoute allowedRoles={["user"]}>
+            <UserMessDetails />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/user/payments",
+        element: (
+          <ProtectedRoute allowedRoles={["user"]}>
+            <UserPayments />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/user/complaints",
+        element: (
+          <ProtectedRoute allowedRoles={["user"]}>
+            <UserComplaints />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/user/help",
+        element: (
+          <ProtectedRoute allowedRoles={["user"]}>
+            <UserHelp />
+          </ProtectedRoute>
+        ),
+      },
+      // Maid Routes
+      {
+        path: "/maid/dashboard",
+        element: (
+          <ProtectedRoute allowedRoles={["maid"]}>
+            <MaidDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/maid/tasks",
+        element: (
+          <ProtectedRoute allowedRoles={["maid"]}>
+            <MaidTasks />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/maid/salary",
+        element: (
+          <ProtectedRoute allowedRoles={["maid"]}>
+            <MaidSalaryHistory />
+          </ProtectedRoute>
+        ),
       },
     ],
   },

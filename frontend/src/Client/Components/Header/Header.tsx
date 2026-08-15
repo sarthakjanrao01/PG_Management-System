@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { IoMdClose } from "react-icons/io";
 import Avtar from "../Utils/Avtar";
+import NotificationBell from "../../../Shared/Components/NotificationBell";
 import {
   getLoggedInUser,
   logoutUser,
@@ -21,51 +22,44 @@ const Header: React.FC = () => {
   const [userData, setUserData] = useState<Register | null>(null);
   const navigate = useNavigate();
 
-  // Fetch user data
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if(token)
-    {
+    if (token) {
       async function fetchLoggedInUser() {
         try {
           const user = await getLoggedInUser();
           setUserData(user);
           setAvtarData({ name: user.name });
-  
-          if (user.role === "user") {
+
+          const role = (user.role || "").toLowerCase();
+          if (role === "owner" || role === "pgowner" || role === "admin") {
+            setIsPgOwner(true);
+            setIsUser(false);
+            setIsMaid(false);
+          } else if (role === "maid") {
+            setIsMaid(true);
+            setIsUser(false);
+            setIsPgOwner(false);
+          } else {
             setIsUser(true);
             setIsPgOwner(false);
             setIsMaid(false);
-          } else if (user.role === "pgOwner") {
-            setIsUser(false);
-            setIsPgOwner(true);
-            setIsMaid(false);
-          } else if (user.role === "maid") {
-            setIsUser(false);
-            setIsPgOwner(false);
-            setIsMaid(true);
           }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error) {
+        } catch {
           console.error("User Not Logged In");
         }
-
-      }fetchLoggedInUser();
+      }
+      fetchLoggedInUser();
     }
-    else{
-      navigate("/");
-    }
-    
-    
-  }, [navigate]);
+  }, []);
 
-  // Handle logout
   const handleLogout = async (): Promise<void> => {
     try {
       await logoutUser();
       setDropdownOpen(false);
       setUserData(null);
       setIsPgOwner(false);
+      setIsUser(false);
       setIsMaid(false);
       navigate("/login");
     } catch (error) {
@@ -73,231 +67,310 @@ const Header: React.FC = () => {
     }
   };
 
-  // Toggle the avatar dropdown menu
   const toggleDropdown = (): void => {
     setDropdownOpen(!dropdownOpen);
   };
 
-  // Handle dropdown navigation
   const handleDropdownNavigation = (path: string): void => {
-    navigate(path); // Navigate to the specified path
-    setDropdownOpen(false); // Close the dropdown
-    setOpen(false); // Close the mobile menu (if open)
+    navigate(path);
+    setDropdownOpen(false);
+    setOpen(false);
   };
 
   return (
-    <header className="w-full font-['open_sans'] z-20 bg-zinc-100 fixed md:px-6 lg:px-[53px]">
-      <div className="text-center max-w-screen-xl m-auto bg-[#F4F4F5] pt-4 sm:px-4 md:px-1 py-2 px-5 md:flex justify-between items-center">
-        <NavLink to="/" className="pt-2 text-2xl font-semibold">
-          <h1 className="text-blue-500 text-start">Management System</h1>
+    <header className="w-full font-sans z-30 bg-white border-b border-slate-200 fixed top-0 left-0 right-0 shadow-sm">
+      <div className="max-w-7xl m-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+        <NavLink to="/" className="text-xl font-black tracking-tight text-blue-600">
+          PG Management System
         </NavLink>
 
-        {/* Hamburger Menu */}
-        <div className="md:hidden flex items-center gap-2 absolute top-4 right-6 cursor-pointer">
+        {/* Mobile Hamburger & Profile */}
+        <div className="md:hidden flex items-center gap-3">
+          {userData && <NotificationBell userId={userData._id} />}
           {userData && (
             <div className="relative">
-              <div onClick={toggleDropdown}>
+              <div onClick={toggleDropdown} className="cursor-pointer">
                 <Avtar name={avtarData.name} />
               </div>
-              {/* Dropdown Menu */}
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg">
-                  <ul className="py-1">
-                    <li
-                      className="block px-4 py-2 text-gray-800 hover:bg-gray-200 cursor-pointer"
-                      onClick={() => handleDropdownNavigation("/profile")}
-                    >
-                      Profile
-                    </li>
-                    <li
-                      className="block px-4 py-2 text-gray-800 hover:bg-gray-200 cursor-pointer"
-                      onClick={handleLogout}
-                    >
-                      Logout
-                    </li>
-                  </ul>
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1">
+                  <div
+                    className="block px-4 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 cursor-pointer"
+                    onClick={() =>
+                      handleDropdownNavigation(
+                        isPgOwner
+                          ? "/owner/dashboard"
+                          : isMaid
+                          ? "/maid/dashboard"
+                          : "/user/dashboard"
+                      )
+                    }
+                  >
+                    Dashboard
+                  </div>
+                  <div
+                    className="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    onClick={() => handleDropdownNavigation("/profile")}
+                  >
+                    Profile
+                  </div>
+                  <div
+                    className="block px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </div>
                 </div>
               )}
             </div>
           )}
-          <div onClick={() => setOpen(!open)}>
-            {open ? (
-              <IoMdClose size={"1.8rem"} />
-            ) : (
-              <GiHamburgerMenu size={"1.8rem"} />
-            )}
+          <div onClick={() => setOpen(!open)} className="cursor-pointer text-slate-700">
+            {open ? <IoMdClose size="1.8rem" /> : <GiHamburgerMenu size="1.8rem" />}
           </div>
         </div>
 
-        {/* Navlinks */}
+        {/* Navigation Links */}
         <div
-          className={`flex md:flex-row sm:mt-0 md:items-center z-[-1] md:z-auto w-full md:w-auto left-0 bg-zinc-100 absolute md:static gap-5 flex-col transition-all duration-500 ease-in ${
-            open ? "top-[55px] " : "top-[-490px]"
+          className={`flex md:flex-row md:items-center z-40 w-full md:w-auto left-0 bg-white absolute md:static border-b md:border-none border-slate-200 px-6 py-4 md:p-0 gap-2 md:gap-3 transition-all duration-300 ${
+            open ? "top-14 block" : "top-[-490px] hidden md:flex"
           }`}
         >
-          {[
-            { text: "Home", path: "/" },
-            { text: "Contact", path: "/contact" },
-            { text: "About Us", path: "/aboutus" },
-          ].map((item, index) => (
-            <NavLink
-              key={index}
-              to={item.path}
-              onClick={() => setOpen(!open)}
-              className={({ isActive }) =>
-                `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                  isActive ? "text-blue-500" : "text-zinc-900"
-                } hover:text-white hover:bg-blue-500 px-2 py-2`
-              }
-            >
-              {item.text}
-            </NavLink>
-          ))}
-
-          {/* Conditional NavLinks for User, Maid, and PG Owner */}
-          {isUser && (
+          {/* Guest Links */}
+          {!userData && (
             <>
               <NavLink
-                to="/mymaidbooking"
-                onClick={() => setOpen(!open)}
+                to="/"
+                onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
+                  `text-sm font-semibold px-3 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600" : "text-slate-700 hover:bg-slate-50"
+                  }`
                 }
               >
-                Maid Booking
-              </NavLink>
-              <NavLink
-                to="/maidbooking"
-                onClick={() => setOpen(!open)}
-                className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
-                }
-              >
-                Hire Maid
-              </NavLink>
-              <NavLink
-                to="/mypgbooking"
-                onClick={() => setOpen(!open)}
-                className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
-                }
-              >
-                PG Booking
-              </NavLink>
-              <NavLink
-                to="/allavailablepg"
-                onClick={() => setOpen(!open)}
-                className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
-                }
-              >
-                PG Rent
-              </NavLink>
-            </>
-          )}
-
-          {isMaid && (
-            <>
-              <NavLink
-                to="/maidconfirmbooking"
-                onClick={() => setOpen(!open)}
-                className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
-                }
-              >
-                Maid Booking
-              </NavLink>
-              <NavLink
-                to="/booking"
-                onClick={() => setOpen(!open)}
-                className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
-                }
-              >
-                Available Booking
+                Home
               </NavLink>
               <NavLink
                 to="/services"
-                onClick={() => setOpen(!open)}
+                onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
+                  `text-sm font-semibold px-3 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600" : "text-slate-700 hover:bg-slate-50"
+                  }`
                 }
               >
-                Maid Services
+                Services
+              </NavLink>
+              <NavLink
+                to="/aboutus"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                About Us
+              </NavLink>
+              <NavLink
+                to="/contact"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Contact
               </NavLink>
             </>
           )}
 
+          {/* User / Tenant Links */}
+          {isUser && (
+            <>
+              <NavLink
+                to="/user/dashboard"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-bold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Home
+              </NavLink>
+              <NavLink
+                to="/user/my-room"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                My Room
+              </NavLink>
+              <NavLink
+                to="/user/history"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                History
+              </NavLink>
+              <NavLink
+                to="/user/complaints"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Complaints
+              </NavLink>
+              <NavLink
+                to="/user/help"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Help
+              </NavLink>
+            </>
+          )}
+
+          {/* PG Owner Links */}
           {isPgOwner && (
             <>
               <NavLink
-                to="/recievedpgbooking"
-                onClick={() => setOpen(!open)}
+                to="/owner/dashboard"
+                onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
+                  `text-sm font-bold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-50"
+                  }`
                 }
               >
-                Recieved Booking
+                Home
               </NavLink>
               <NavLink
-                to="/pgservices"
-                onClick={() => setOpen(!open)}
+                to="/owner/add-room"
+                onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `md:text-md text-base text-center md:text-left font-bold tracking-tight font-['open_sans'] ${
-                    isActive ? "text-blue-500" : "text-zinc-900"
-                  } hover:text-white hover:bg-blue-500 px-2 py-2`
+                  `text-sm font-semibold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`
                 }
               >
-                Pg Services
+                Add Room
+              </NavLink>
+              <NavLink
+                to="/owner/complaints"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Room Issues
               </NavLink>
             </>
           )}
 
-          <div className="text-center text-md font-medium pt-1 pb-2 md:mb-0 md:text-left">
+          {/* Maid / Staff Links */}
+          {isMaid && (
+            <>
+              <NavLink
+                to="/maid/dashboard"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-bold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-600 text-white" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Home
+              </NavLink>
+              <NavLink
+                to="/maid/tasks"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Tasks
+              </NavLink>
+              <NavLink
+                to="/maid/salary"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-1.5 rounded-lg transition ${
+                    isActive ? "bg-blue-50 text-blue-600 font-bold" : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Salary History
+              </NavLink>
+            </>
+          )}
+
+          {/* Bell Icon & User Profile Avatar */}
+          <div className="pt-2 md:pt-0 flex items-center gap-3">
+            {userData && (
+              <div className="hidden md:block">
+                <NotificationBell userId={userData._id} />
+              </div>
+            )}
             {userData ? (
               <div className="hidden md:block relative">
                 <div onClick={toggleDropdown} className="cursor-pointer">
                   <Avtar name={avtarData.name} />
                 </div>
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-3 w-48 bg-white rounded-lg shadow-lg">
-                    <ul className="py-1">
-                      <li
-                        className="block px-4 py-2 text-gray-800 hover:bg-gray-200 cursor-pointer"
-                        onClick={() => handleDropdownNavigation("/profile")}
-                      >
-                        Profile
-                      </li>
-                      <li
-                        className="block px-4 py-2 text-gray-800 hover:bg-gray-200 cursor-pointer"
-                        onClick={handleLogout}
-                      >
-                        Logout
-                      </li>
-                    </ul>
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1">
+                    <div
+                      className="block px-4 py-2 text-xs font-bold text-blue-600 hover:bg-blue-50 cursor-pointer"
+                      onClick={() =>
+                        handleDropdownNavigation(
+                          isPgOwner
+                            ? "/owner/dashboard"
+                            : isMaid
+                            ? "/maid/dashboard"
+                            : "/user/dashboard"
+                        )
+                      }
+                    >
+                      Dashboard
+                    </div>
+                    <div
+                      className="block px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                      onClick={() => handleDropdownNavigation("/profile")}
+                    >
+                      Profile
+                    </div>
+                    <div
+                      className="block px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                      onClick={handleLogout}
+                    >
+                      Logout
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
               <button
                 onClick={() => navigate("/login")}
-                className="md:px-6 md:py-2 px-3 py-1 w-max h-min font-['open_sans'] text-white bg-blue-500 rounded hover:bg-white border border-blue-500 hover:text-blue-400"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-xl text-sm transition shadow-sm"
               >
                 Login
               </button>

@@ -1,30 +1,19 @@
 import React from "react";
-import { Link } from "react-router-dom";
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-gray-100 text-blue-500 px-4 sm:px-6 md:px-12 py-6">
-      <div className="container mx-auto px-4">
-        <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
+    <footer className="bg-slate-900 text-white px-4 sm:px-6 md:px-12 py-6 mt-auto w-full font-sans z-10">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center text-center sm:text-left gap-4">
           {/* Footer Left Section */}
-          <div className="mb-3 sm:mb-0">
-            <h1 className="text-lg md:text-xl font-semibold">Matangi Event</h1>
+          <div>
+            <h1 className="text-lg md:text-xl font-extrabold text-blue-400">PG Management System</h1>
+            <p className="text-xs text-slate-400 mt-1">Smart accommodation, mess, & staff management platform.</p>
           </div>
 
           {/* Footer Right Section */}
-          <div className="text-sm">
-            <p>© {new Date().getFullYear()} Matangi Event. All Rights Reserved.</p>
-            <p className="mt-1">
-              Designed by{" "}
-              <Link
-                to="https://matangievent.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-red-500 transition duration-200 font-medium"
-              >
-                Sweta Patel
-              </Link>
-            </p>
+          <div className="text-xs text-slate-400">
+            <p>© {new Date().getFullYear()} PG Management System. All Rights Reserved.</p>
           </div>
         </div>
       </div>

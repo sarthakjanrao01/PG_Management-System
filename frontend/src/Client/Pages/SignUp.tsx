@@ -152,7 +152,7 @@ const SignUp: React.FC = () => {
             </button>
             {errorMessage && (
               <div className="text-red-500 text-center w-full font-semibold mt-2 text-sm">
-                ❌ {errorMessage}
+                {errorMessage}
               </div>
             )}
           </form>

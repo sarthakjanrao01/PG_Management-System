@@ -71,13 +71,13 @@ const AboutUsArea: React.FC = () => {
 
             <ul className="space-y-2 text-gray-200 mb-6">
               <li className="hover:text-orange-400 transition">
-                ✔ Expert cleaners with years of experience.
+                Expert cleaners with years of experience.
               </li>
               <li className="hover:text-orange-400 transition">
-                ✔ Eco-friendly cleaning products and methods.
+                Eco-friendly cleaning products and methods.
               </li>
               <li className="hover:text-orange-400 transition">
-                ✔ Fast and affordable cleaning solutions.
+                Fast and affordable cleaning solutions.
               </li>
             </ul>
 

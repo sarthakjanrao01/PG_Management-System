@@ -1,5 +1,13 @@
 import { RequestHandler } from "express";
 import RegisterModel from "../Models/Register.model";
+import NotificationModel from "../Models/Notification.model";
+import TenancyModel from "../Models/Tenancy.model";
+import PgPaymentModel from "../Models/PgPayment.model";
+import ComplaintModel from "../Models/Complaint.model";
+import PgBookingModel from "../Models/PgBooking.model";
+import BookingModel from "../Models/Booking.model";
+import PgModel from "../Models/Pg.model";
+import MaidModel from "../Models/Maid.model";
 import createHttpError from "http-errors";
 import bcrypt from "bcrypt";
 import { ObjectId } from "mongoose";
@@ -45,8 +53,6 @@ export const getAuthenticatedUser: RequestHandler = async (req, res, next) => {
 };
 
 // Login User
-
-// Interface for Login Body
 interface LoginBody {
   email: string;
   password: string;
@@ -64,65 +70,116 @@ export const loginUser: RequestHandler<
   try {
     if (!email || !password) {
       throw createHttpError(400, "Please provide all details");
-    } else {
-      const existingRegister = await RegisterModel.findOne({ email: email })
-        .select("+password +email")
-        .exec();
-      if (!existingRegister) {
-        throw createHttpError(401, "Invalid Credentials");
-      } else {
-        const isPasswordValid = await bcrypt.compare(
-          password,
-          existingRegister.password
-        );
-        if (!isPasswordValid) {
-          throw createHttpError(400, "Invalid Credentials");
-        } else {
-          const token = await jwt.sign(
-            {
-              userId: existingRegister._id,
-            },
-            validateEnv.JWT_SECRET
-          );
-
-          if (!token) {
-            res.status(401).json({ message: "Token creation failed" });
-            return;
-          }
-
-          res.status(200).json({
-            message: "User find successfully",
-            token,
-          });
-        }
-      }
     }
+
+    const existingRegister = await RegisterModel.findOne({ email: email })
+      .select("+password +email +role +isApproved")
+      .exec();
+
+    if (!existingRegister) {
+      throw createHttpError(401, "Invalid Credentials");
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      existingRegister.password
+    );
+
+    if (!isPasswordValid) {
+      throw createHttpError(400, "Invalid Credentials");
+    }
+
+    // Enforce Superadmin Approval for Owner role
+    const userRole = (existingRegister.role || "").toLowerCase();
+    if ((userRole === "owner" || userRole === "pgowner") && !existingRegister.isApproved) {
+      res.status(403).json({ message: "take approval from superadmin" });
+      return;
+    }
+
+    const token = jwt.sign(
+      {
+        userId: existingRegister._id,
+      },
+      validateEnv.JWT_SECRET
+    );
+
+    if (!token) {
+      res.status(401).json({ message: "Token creation failed" });
+      return;
+    }
+
+    res.status(200).json({
+      message: "User login successful",
+      token,
+    });
   } catch (error) {
     next(error);
   }
 };
 
 // Logout User
-
 export const logout: RequestHandler = (req, res, next) => {
   try {
-    // Clear token from cookies if using cookies for authentication
-    localStorage.removeItem('token');
-
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     next(error);
   }
 };
 
-
-// ------------------------------------CRUD For Register------------------------------------------
-
 // Get All Register
 export const getRegister: RequestHandler = async (req, res, next) => {
   try {
     const registers = await RegisterModel.find().exec();
     res.status(200).json(registers);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get All Owners for Superadmin
+export const getOwners: RequestHandler = async (req, res, next) => {
+  try {
+    const owners = await RegisterModel.find({
+      role: { $in: ["owner", "pgowner", "Owner", "PGOwner"] },
+    }).sort({ createdAt: -1 });
+    res.status(200).json(owners);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Toggle Owner Approval by Superadmin
+export const toggleOwnerApproval: RequestHandler = async (req, res, next) => {
+  try {
+    const { reg_id } = req.params;
+    const { isApproved } = req.body;
+
+    const owner = await RegisterModel.findById(reg_id);
+    if (!owner) {
+      res.status(404).json({ message: "Owner account not found" });
+      return;
+    }
+
+    owner.isApproved = typeof isApproved === "boolean" ? isApproved : !owner.isApproved;
+    const updated = await owner.save();
+
+    // Send notification to owner
+    if (updated.isApproved) {
+      try {
+        const notif = new NotificationModel({
+          recipient_id: updated._id,
+          title: "Account Approved by Superadmin",
+          message: "Congratulations! Your PG Owner account has been approved by Superadmin. You can now log in.",
+          type: "account_approved",
+          isRead: false,
+        });
+        await notif.save();
+      } catch (notifErr) {
+        console.warn("Notification send failed:", notifErr);
+      }
+    }
+
+    res.status(200).json(updated);
   } catch (error) {
     next(error);
   }
@@ -143,7 +200,7 @@ export const getRegisterById: RequestHandler = async (req, res, next) => {
   }
 };
 
-// Interface for Register Body to create Register
+// Interface for Register Body
 interface RegisterBody {
   name: string;
   mobile_number: number;
@@ -161,18 +218,15 @@ export const createRegister: RequestHandler<
   const { name, mobile_number, email, password, role } = req.body;
 
   try {
-    // Validate required fields
     if (!name || !mobile_number || !email || !password || !role) {
       throw createHttpError(400, "Please provide all details");
     }
 
-    // Check if the email already exists
     const existingEmail = await RegisterModel.findOne({ email }).exec();
     if (existingEmail) {
       throw createHttpError(409, "Email ID already exists");
     }
 
-    // Check if the mobile number already exists
     const existingMobileNumber = await RegisterModel.findOne({
       mobile_number,
     }).exec();
@@ -180,25 +234,26 @@ export const createRegister: RequestHandler<
       throw createHttpError(409, "Mobile number already exists");
     }
 
-    // Hash the password
     const passwordHashed = await bcrypt.hash(password, 10);
 
-    // Create the new user
+    const isOwner = ["owner", "pgowner"].includes(role.toLowerCase());
+
     const newRegister = await RegisterModel.create({
       name,
       mobile_number,
       email,
       password: passwordHashed,
       role,
+      isApproved: !isOwner, // Owners require superadmin approval
     });
 
-    // req.session.userId = newRegister._id;
     res.status(201).json({
       id: newRegister._id,
       name: newRegister.name,
       mobile_number: newRegister.mobile_number,
       email: newRegister.email,
       role: newRegister.role,
+      isApproved: newRegister.isApproved,
     });
   } catch (error) {
     next(error);
@@ -206,13 +261,10 @@ export const createRegister: RequestHandler<
 };
 
 // Update Register
-
-// Interface for Update Register Params
 interface UpdateRegisterParams {
   reg_id: ObjectId;
 }
 
-// Interface for Update Register Body
 interface UpdateRegisterBody {
   name: string;
   mobile_number: number;
@@ -221,7 +273,6 @@ interface UpdateRegisterBody {
   role: string;
 }
 
-// Update Register
 export const updateRegister: RequestHandler<
   UpdateRegisterParams,
   unknown,
@@ -232,25 +283,22 @@ export const updateRegister: RequestHandler<
   const { name, mobile_number, email, password, role } = req.body;
 
   try {
-    // Validate required fields
     if (!name || !mobile_number || !email || !password || !role) {
       throw createHttpError(400, "Please provide all details");
     }
 
-    // Check if email or mobile number already exists for another user
     const existingUser = await RegisterModel.findOne({
       $or: [{ email }, { mobile_number }],
-      _id: { $ne: regId }, // Exclude the current user from the check
+      _id: { $ne: regId },
     }).exec();
 
     if (existingUser) {
       throw createHttpError(
         400,
-        `The email or mobile number is already associated with another account.`
+        "The email or mobile number is already associated with another account."
       );
     }
 
-    // Perform the update
     const updatedRegister = await RegisterModel.findByIdAndUpdate(
       { _id: regId },
       { name, mobile_number, email, password, role },
@@ -267,16 +315,28 @@ export const updateRegister: RequestHandler<
   }
 };
 
-// Delete Register
+// Delete Register (Cascade delete all user data across collections)
 export const deleteRegister: RequestHandler = async (req, res, next) => {
   const regId = req.params.reg_id;
   try {
     const deletedRegister = await RegisterModel.findByIdAndDelete(regId).exec();
     if (!deletedRegister) {
       throw createHttpError(404, "Register Id not found");
-    } else {
-      res.sendStatus(204);
     }
+
+    // Cascade delete all associated user data across collections
+    await Promise.all([
+      TenancyModel.deleteMany({ user_id: regId }),
+      PgPaymentModel.deleteMany({ user_id: regId }),
+      ComplaintModel.deleteMany({ user_id: regId }),
+      NotificationModel.deleteMany({ $or: [{ recipient_id: regId }, { sender_id: regId }] }),
+      PgBookingModel.deleteMany({ user_id: regId }),
+      BookingModel.deleteMany({ user_id: regId }),
+      PgModel.deleteMany({ reg_id: regId }),
+      MaidModel.deleteMany({ reg_id: regId }),
+    ]);
+
+    res.status(200).json({ message: "User account and all associated records deleted successfully" });
   } catch (error) {
     next(error);
   }

@@ -86,10 +86,10 @@ const UserPgBooking: React.FC = () => {
           <div className="text-center">
             <p className="text-lg font-semibold">No booking found</p>
             <button
-              onClick={() => navigate("/allavailablepg")}
+              onClick={() => navigate("/user/dashboard")}
               className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
             >
-              View Available PGs
+              Go to Dashboard
             </button>
           </div>
         </div>

@@ -9,7 +9,7 @@ const AboutUs: React.FC = () => {
           Transforming the Way You Find <span className="text-blue-500">Maid Services</span> & <span className="text-teal-500">PG Rentals</span>
         </h1>
         <p className="text-lg text-gray-600 leading-relaxed mb-8 animate-fade-in-up delay-100">
-          Welcome to <span className="font-semibold text-blue-500">Matangi Event</span> — a platform designed to simplify the search for reliable <span className="font-bold">maids</span> and <span className="font-bold">PG accommodations</span> in your city. Whether you are a busy professional, a student, or a family in need of trustworthy domestic help or a comfortable place to stay, we've got you covered!
+          Welcome to <span className="font-semibold text-blue-500">PG Management System</span> — a platform designed to simplify the search for reliable <span className="font-bold">maids</span> and <span className="font-bold">PG accommodations</span> in your city. Whether you are a busy professional, a student, or a family in need of trustworthy domestic help or a comfortable place to stay, we've got you covered!
         </p>
       </div>
       
@@ -46,8 +46,8 @@ const AboutUs: React.FC = () => {
         <NavLink to="/maidbooking" className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 transform hover:scale-110">
           Hire a Maid
         </NavLink>
-        <NavLink to="/allavailablepg" className="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 transform hover:scale-110">
-          Find a PG
+        <NavLink to="/contact" className="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 transform hover:scale-110">
+          Contact Us
         </NavLink>
       </div>
     </div>
