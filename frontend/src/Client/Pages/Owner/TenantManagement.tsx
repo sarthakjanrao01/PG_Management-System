@@ -11,27 +11,15 @@ interface PgItem {
 
 interface TenantItem {
   _id: string;
-  user_id: string;
   allotment_date: string;
-  vacate_date?: string;
   status: string;
-  userDetail: { name: string; mobile_number: string; email: string }[];
-  roomDetail: { room_no: string; type: string; rent: number }[];
-}
-
-interface PgBookingRequest {
-  _id: string;
-  user_id: string;
-  name: string;
-  start_date: string;
-  status: string;
-  userDetail: { name: string; email: string; mobile_number: string }[];
+  userDetail?: { name: string; email: string; mobile_number?: number }[];
+  roomDetail?: { room_no: string; type: string }[];
 }
 
 interface RoomOption {
   _id: string;
   room_no: string;
-  type: string;
   capacity: number;
   occupied_count: number;
 }
@@ -41,13 +29,7 @@ const TenantManagement: React.FC = () => {
   const [pgs, setPgs] = useState<PgItem[]>([]);
   const [selectedPgId, setSelectedPgId] = useState<string>("");
   const [tenants, setTenants] = useState<TenantItem[]>([]);
-  const [pendingBookings, setPendingBookings] = useState<PgBookingRequest[]>([]);
-  const [rooms, setRooms] = useState<RoomOption[]>([]);
-
-  // Allotment Modal State
-  const [showAllotModal, setShowAllotModal] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<PgBookingRequest | null>(null);
-  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [, setRooms] = useState<RoomOption[]>([]);
 
   useEffect(() => {
     const loadPgs = async () => {
@@ -94,29 +76,6 @@ const TenantManagement: React.FC = () => {
     }
   };
 
-  const handleAllotSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedBooking || !selectedRoomId || !selectedPgId) return;
-
-    try {
-      await axiosInstance.post("/tenancy/allot", {
-        user_id: selectedBooking.user_id,
-        pg_id: selectedPgId,
-        room_id: selectedRoomId,
-        booking_id: selectedBooking._id,
-      });
-
-      alert("Room allotted successfully!");
-      setShowAllotModal(false);
-      setSelectedBooking(null);
-      loadTenants(selectedPgId);
-      loadRooms(selectedPgId);
-    } catch (err) {
-      console.error("Error allotting room:", err);
-      alert("Failed to allot room");
-    }
-  };
-
   const handleVacate = async (tenancyId: string) => {
     if (!confirm("Are you sure you want to mark this tenant as vacated?")) return;
     try {
@@ -130,8 +89,6 @@ const TenantManagement: React.FC = () => {
 
   if (loading) return <Loading />;
 
-  const vacantRooms = rooms.filter((r) => r.occupied_count < r.capacity);
-
   return (
     <div className="min-h-screen bg-slate-50 pt-20 pb-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-7xl mx-auto">
@@ -139,7 +96,7 @@ const TenantManagement: React.FC = () => {
           <div>
             <h1 className="text-3xl font-extrabold text-slate-800">Tenant & Allotment Management</h1>
             <p className="text-slate-500 text-sm mt-1">
-              View current occupants, allot room numbers to accepted bookings, and manage vacating tenants.
+              View current occupants, room numbers, and manage vacating tenants.
             </p>
           </div>
           {pgs.length > 0 && (

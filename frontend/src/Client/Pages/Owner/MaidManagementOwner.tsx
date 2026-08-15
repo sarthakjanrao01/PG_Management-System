@@ -16,7 +16,7 @@ interface MaidItem {
   duty_type: string;
   salary: number;
   status: string;
-  pgDetail: { name: string }[];
+  pgDetail: { _id?: string; name: string }[];
 }
 
 const MaidManagementOwner: React.FC = () => {
