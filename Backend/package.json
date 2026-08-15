@@ -1,10 +1,12 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "PG Management System Backend API",
   "main": "dist/app.js",
   "scripts": {
-    "start": "nodemon src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "dev": "nodemon src/app.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
