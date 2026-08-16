@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { axiosInstance } from "../../Shared/Lib/axios";
 import Loading from "../../Shared/Components/Loading";
 import SlideOverDrawer from "../../Shared/Components/SlideOverDrawer";
-import { FiSearch, FiTrash2, FiUserCheck, FiUserX } from "react-icons/fi";
+import { FiSearch } from "react-icons/fi";
 
 interface UserItem {
   _id: string;

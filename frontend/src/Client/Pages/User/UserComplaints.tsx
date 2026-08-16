@@ -4,7 +4,7 @@ import { getLoggedInUser } from "../../../Shared/Store/LoginAuthStore";
 import { axiosInstance } from "../../../Shared/Lib/axios";
 import Loading from "../../../Shared/Components/Loading";
 import SlideOverDrawer from "../../../Shared/Components/SlideOverDrawer";
-import { FiSearch, FiTrash2, FiCheckCircle } from "react-icons/fi";
+import { FiSearch, FiTrash2 } from "react-icons/fi";
 
 interface ComplaintItem {
   _id: string;
