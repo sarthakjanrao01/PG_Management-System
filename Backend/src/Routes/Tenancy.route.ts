@@ -7,6 +7,8 @@ router.post("/allot", TenancyController.allotRoom);
 router.get("/pg/:pgId", TenancyController.getTenantsByPgId);
 router.get("/room/:roomId", TenancyController.getTenantsByRoomId);
 router.get("/user/:userId", TenancyController.getTenancyByUserId);
+router.get("/quick-list/:pgId", TenancyController.getQuickListByPgId);
 router.put("/vacate/:id", TenancyController.vacateTenant);
 
 export default router;
+

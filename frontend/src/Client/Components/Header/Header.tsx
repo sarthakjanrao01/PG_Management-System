@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { IoMdClose } from "react-icons/io";
@@ -19,11 +19,38 @@ const Header: React.FC = () => {
   const [isUser, setIsUser] = useState<boolean>(false);
   const [isPgOwner, setIsPgOwner] = useState<boolean>(false);
   const [isMaid, setIsMaid] = useState<boolean>(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
   const [userData, setUserData] = useState<Register | null>(null);
   const navigate = useNavigate();
 
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      const clickedOutsideDesktop = !dropdownRef.current || !dropdownRef.current.contains(target);
+      const clickedOutsideMobile = !mobileDropdownRef.current || !mobileDropdownRef.current.contains(target);
+
+      if (clickedOutsideDesktop && clickedOutsideMobile) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownOpen]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
+
     if (token) {
       async function fetchLoggedInUser() {
         try {
@@ -32,18 +59,26 @@ const Header: React.FC = () => {
           setAvtarData({ name: user.name });
 
           const role = (user.role || "").toLowerCase();
-          if (role === "owner" || role === "pgowner" || role === "admin") {
+          if (role === "superadmin") {
+            setIsSuperAdmin(true);
+            setIsPgOwner(false);
+            setIsUser(false);
+            setIsMaid(false);
+          } else if (role === "owner" || role === "pgowner" || role === "admin") {
             setIsPgOwner(true);
             setIsUser(false);
             setIsMaid(false);
+            setIsSuperAdmin(false);
           } else if (role === "maid") {
             setIsMaid(true);
             setIsUser(false);
             setIsPgOwner(false);
+            setIsSuperAdmin(false);
           } else {
             setIsUser(true);
             setIsPgOwner(false);
             setIsMaid(false);
+            setIsSuperAdmin(false);
           }
         } catch {
           console.error("User Not Logged In");
@@ -62,6 +97,7 @@ const Header: React.FC = () => {
       setIsPgOwner(false);
       setIsUser(false);
       setIsMaid(false);
+      setIsSuperAdmin(false);
       navigate("/login");
     } catch (error) {
       console.error("Error during logout:", error);
@@ -141,6 +177,71 @@ const Header: React.FC = () => {
                 }
               >
                 Contact
+              </NavLink>
+            </>
+          )}
+
+          {isSuperAdmin && (
+            <>
+              <NavLink
+                to="/superadmin/dashboard"
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors ${
+                    isActive
+                      ? "bg-purple-600 text-white shadow-sm font-bold"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-purple-600"
+                  }`
+                }
+              >
+                Home
+              </NavLink>
+              <NavLink
+                to="/user/my-room"
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors ${
+                    isActive
+                      ? "bg-purple-50 text-purple-600 font-bold"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-purple-600"
+                  }`
+                }
+              >
+                My Room
+              </NavLink>
+              <NavLink
+                to="/user/history"
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors ${
+                    isActive
+                      ? "bg-purple-50 text-purple-600 font-bold"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-purple-600"
+                  }`
+                }
+              >
+                History
+              </NavLink>
+              <NavLink
+                to="/user/complaints"
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors ${
+                    isActive
+                      ? "bg-purple-50 text-purple-600 font-bold"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-purple-600"
+                  }`
+                }
+              >
+                Complaints
+              </NavLink>
+              <NavLink
+                to="/user/help"
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors ${
+                    isActive
+                      ? "bg-purple-50 text-purple-600 font-bold"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-purple-600"
+                  }`
+                }
+              >
+                Help
               </NavLink>
             </>
           )}
@@ -237,6 +338,18 @@ const Header: React.FC = () => {
                 Add Room
               </NavLink>
               <NavLink
+                to="/owner/quick-list"
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors ${
+                    isActive
+                      ? "bg-blue-50 text-blue-600 font-bold"
+                      : "text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+                  }`
+                }
+              >
+                Quick List
+              </NavLink>
+              <NavLink
                 to="/owner/complaints"
                 className={({ isActive }) =>
                   `text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors ${
@@ -248,6 +361,7 @@ const Header: React.FC = () => {
               >
                 Room Issues
               </NavLink>
+
             </>
           )}
 
@@ -296,7 +410,7 @@ const Header: React.FC = () => {
         {/* Desktop Profile / Login Button */}
         <div className="hidden md:flex items-center gap-3">
           {userData ? (
-            <div className="relative flex items-center gap-3">
+            <div ref={dropdownRef} className="relative flex items-center gap-3">
               <NotificationBell userId={userData._id} />
               <div onClick={toggleDropdown} className="cursor-pointer">
                 <Avtar name={avtarData.name} />
@@ -349,10 +463,11 @@ const Header: React.FC = () => {
         <div className="md:hidden flex items-center gap-3">
           {userData && <NotificationBell userId={userData._id} />}
           {userData && (
-            <div className="relative">
+            <div ref={mobileDropdownRef} className="relative">
               <div onClick={toggleDropdown} className="cursor-pointer">
                 <Avtar name={avtarData.name} />
               </div>
+
               {dropdownOpen && (
                 <div className="absolute right-0 top-12 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1">
                   <div
@@ -572,6 +687,19 @@ const Header: React.FC = () => {
                 Add Room
               </NavLink>
               <NavLink
+                to="/owner/quick-list"
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `text-sm font-semibold px-4 py-2.5 rounded-xl transition ${
+                    isActive
+                      ? "bg-blue-50 text-blue-600 font-bold"
+                      : "text-slate-700 hover:bg-slate-50"
+                  }`
+                }
+              >
+                Quick List
+              </NavLink>
+              <NavLink
                 to="/owner/complaints"
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
@@ -584,6 +712,7 @@ const Header: React.FC = () => {
               >
                 Room Issues
               </NavLink>
+
             </>
           )}
 

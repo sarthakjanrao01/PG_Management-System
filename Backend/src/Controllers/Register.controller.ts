@@ -8,6 +8,7 @@ import PgBookingModel from "../Models/PgBooking.model";
 import BookingModel from "../Models/Booking.model";
 import PgModel from "../Models/Pg.model";
 import MaidModel from "../Models/Maid.model";
+import RoomModel from "../Models/Room.model";
 import createHttpError from "http-errors";
 import bcrypt from "bcrypt";
 import { ObjectId } from "mongoose";
@@ -77,7 +78,8 @@ export const loginUser: RequestHandler<
       .exec();
 
     if (!existingRegister) {
-      throw createHttpError(401, "Invalid Credentials");
+      res.status(404).json({ message: "No account found with this email address. Please check your email or sign up." });
+      return;
     }
 
     const isPasswordValid = await bcrypt.compare(
@@ -86,13 +88,14 @@ export const loginUser: RequestHandler<
     );
 
     if (!isPasswordValid) {
-      throw createHttpError(400, "Invalid Credentials");
+      res.status(400).json({ message: "Incorrect password. Please verify your password and try again." });
+      return;
     }
 
     // Enforce Superadmin Approval for Owner role
     const userRole = (existingRegister.role || "").toLowerCase();
     if ((userRole === "owner" || userRole === "pgowner") && !existingRegister.isApproved) {
-      res.status(403).json({ message: "take approval from superadmin" });
+      res.status(403).json({ message: "Your owner account is pending approval from Super Admin." });
       return;
     }
 
@@ -224,14 +227,16 @@ export const createRegister: RequestHandler<
 
     const existingEmail = await RegisterModel.findOne({ email }).exec();
     if (existingEmail) {
-      throw createHttpError(409, "Email ID already exists");
+      res.status(409).json({ message: "This email address is already registered. Please sign in instead." });
+      return;
     }
 
     const existingMobileNumber = await RegisterModel.findOne({
       mobile_number,
     }).exec();
     if (existingMobileNumber) {
-      throw createHttpError(409, "Mobile number already exists");
+      res.status(409).json({ message: "This mobile number is already registered. Please use a different number or sign in." });
+      return;
     }
 
     const passwordHashed = await bcrypt.hash(password, 10);
@@ -315,7 +320,7 @@ export const updateRegister: RequestHandler<
   }
 };
 
-// Delete Register (Cascade delete all user data across collections)
+// Delete Register (Cascade delete all user/owner data across collections & sync room occupancy)
 export const deleteRegister: RequestHandler = async (req, res, next) => {
   const regId = req.params.reg_id;
   try {
@@ -324,19 +329,45 @@ export const deleteRegister: RequestHandler = async (req, res, next) => {
       throw createHttpError(404, "Register Id not found");
     }
 
-    // Cascade delete all associated user data across collections
+    // Find any PGs owned by this account (if owner role)
+    const ownerPgs = await PgModel.find({ reg_id: regId });
+    const pgIds = ownerPgs.map((p) => p._id);
+
+    // Find active tenancies of this user BEFORE deleting them to update room occupancy
+    const userTenancies = await TenancyModel.find({ user_id: regId });
+    const affectedRoomIds = userTenancies.map((t) => t.room_id).filter(Boolean);
+
+    // Cascade delete all associated data across all database collections
     await Promise.all([
-      TenancyModel.deleteMany({ user_id: regId }),
-      PgPaymentModel.deleteMany({ user_id: regId }),
-      ComplaintModel.deleteMany({ user_id: regId }),
+      RoomModel.deleteMany({ pg_id: { $in: pgIds } }),
+      TenancyModel.deleteMany({ $or: [{ user_id: regId }, { pg_id: { $in: pgIds } }] }),
+      PgPaymentModel.deleteMany({ $or: [{ user_id: regId }, { pg_id: { $in: pgIds } }] }),
+      ComplaintModel.deleteMany({ $or: [{ user_id: regId }, { pg_id: { $in: pgIds } }] }),
       NotificationModel.deleteMany({ $or: [{ recipient_id: regId }, { sender_id: regId }] }),
-      PgBookingModel.deleteMany({ user_id: regId }),
+      PgBookingModel.deleteMany({ $or: [{ user_id: regId }, { pg_id: { $in: pgIds } }] }),
       BookingModel.deleteMany({ user_id: regId }),
       PgModel.deleteMany({ reg_id: regId }),
       MaidModel.deleteMany({ reg_id: regId }),
     ]);
 
-    res.status(200).json({ message: "User account and all associated records deleted successfully" });
+    // Recalculate room occupancy & status for all affected rooms
+    for (const roomId of affectedRoomIds) {
+      const room = await RoomModel.findById(roomId);
+      if (room) {
+        const activeCount = await TenancyModel.countDocuments({ room_id: roomId, status: "Active" });
+        room.occupied_count = activeCount;
+        if (activeCount === 0) {
+          room.status = "Vacant";
+        } else if (activeCount >= room.capacity) {
+          room.status = "Fully Occupied";
+        } else {
+          room.status = "Partially Occupied";
+        }
+        await room.save();
+      }
+    }
+
+    res.status(200).json({ message: "User account and all associated records deleted cleanly from database." });
   } catch (error) {
     next(error);
   }

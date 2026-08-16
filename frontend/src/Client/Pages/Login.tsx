@@ -63,13 +63,8 @@ const Login: React.FC = () => {
     } catch (error: any) {
       console.error("Login error:", error);
       const msg = error?.message || "Invalid email or password. Please try again.";
-      if (msg.toLowerCase().includes("approval")) {
-        toast.error("Take approval from superadmin", { id: toastId, duration: 6000 });
-        setErrorMessage("Take approval from superadmin");
-      } else {
-        toast.error(msg, { id: toastId });
-        setErrorMessage(msg);
-      }
+      toast.error(msg, { id: toastId, duration: 5000 });
+      setErrorMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -126,7 +121,7 @@ const Login: React.FC = () => {
 
             {errorMessage && (
               <div className="bg-rose-50 border border-rose-200 text-rose-600 text-center w-full font-bold p-3 rounded-xl text-xs">
-                ⚠️ {errorMessage}
+                {errorMessage}
               </div>
             )}
 

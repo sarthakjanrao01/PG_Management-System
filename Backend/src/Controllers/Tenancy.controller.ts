@@ -83,6 +83,7 @@ export const getTenantsByPgId: RequestHandler = async (req, res, next) => {
           as: "userDetail",
         },
       },
+      { $match: { userDetail: { $ne: [] } } },
       {
         $lookup: {
           from: "rooms",
@@ -113,6 +114,7 @@ export const getTenantsByRoomId: RequestHandler = async (req, res, next) => {
           as: "userDetail",
         },
       },
+      { $match: { userDetail: { $ne: [] } } },
       { $sort: { createdAt: -1 } },
     ]);
     res.status(200).json(tenancies);
@@ -179,3 +181,95 @@ export const vacateTenant: RequestHandler = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getQuickListByPgId: RequestHandler = async (req, res, next) => {
+  try {
+    const { pgId } = req.params;
+    let matchQuery: Record<string, unknown> = {};
+    if (pgId !== "all" && mongoose.Types.ObjectId.isValid(pgId)) {
+      matchQuery = { pg_id: new mongoose.Types.ObjectId(pgId) };
+    }
+    const tenancies = await TenancyModel.aggregate([
+      { $match: { ...matchQuery, status: "Active" } },
+      {
+        $lookup: {
+          from: "registers",
+          localField: "user_id",
+          foreignField: "_id",
+          as: "userDetail",
+        },
+      },
+      { $match: { userDetail: { $ne: [] } } },
+      {
+        $lookup: {
+          from: "rooms",
+          localField: "room_id",
+          foreignField: "_id",
+          as: "roomDetail",
+        },
+      },
+      {
+        $lookup: {
+          from: "pgpayments",
+          localField: "user_id",
+          foreignField: "user_id",
+          as: "paymentDetail",
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ]);
+
+    const formatted = tenancies.map((t) => {
+      const u = t.userDetail?.[0] || {};
+      const r = t.roomDetail?.[0] || {};
+      const payments = t.paymentDetail || [];
+
+      const totalPaid = payments.reduce((acc: number, p: { amount?: number }) => acc + (p.amount || 0), 0);
+      const allotmentDate = t.allotment_date ? new Date(t.allotment_date) : new Date();
+      const paidMonthsCount = Math.max(1, payments.length);
+
+      const validStartDate = new Date(allotmentDate);
+      validStartDate.setMonth(validStartDate.getMonth() + (paidMonthsCount - 1));
+
+      const validEndDate = new Date(allotmentDate);
+      validEndDate.setMonth(validEndDate.getMonth() + paidMonthsCount);
+
+      return {
+        _id: t._id,
+        status: t.status || "Active",
+        allotment_date: t.allotment_date,
+        user: {
+          _id: u._id,
+          name: u.name || "Occupant",
+          email: u.email || "",
+          mobile_number: u.mobile_number || u.phone || "N/A",
+        },
+        room: {
+          _id: r._id,
+          room_no: r.room_no || "N/A",
+          type: r.type || "Standard",
+          floor: r.floor || 1,
+          rent: r.rent || 0,
+          capacity: r.capacity || 1,
+          occupied_count: r.occupied_count || 1,
+          amenities: r.amenities || [],
+        },
+        payment: {
+          total_paid: totalPaid,
+          rent: r.rent || 0,
+          status: totalPaid >= (r.rent || 0) && (r.rent || 0) > 0 ? "Paid" : totalPaid > 0 ? "Partial" : "Pending",
+          payment_count: payments.length,
+        },
+        validity: {
+          start_date: validStartDate.toISOString(),
+          end_date: validEndDate.toISOString(),
+        },
+      };
+    });
+
+    res.status(200).json(formatted);
+  } catch (error) {
+    next(error);
+  }
+};
+

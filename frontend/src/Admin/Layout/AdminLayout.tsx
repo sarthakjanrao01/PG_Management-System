@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser, faChevronDown, faChevronUp, faBars, faTimes } from "@fortawesome/free-solid-svg-icons";
@@ -15,8 +15,26 @@ const AdminLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navigate = useNavigate();
+  const adminDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (adminDropdownRef.current && !adminDropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownOpen]);
+
+  useEffect(() => {
+
     const fetchLoggedInAdmin = async () => {
       try {
         const admin = await getLoggedInAdmin();
@@ -279,7 +297,7 @@ const AdminLayout: React.FC = () => {
             </div>
 
             {/* User Dropdown */}
-            <div className="relative flex items-center space-x-2 text-right ml-2">
+            <div ref={adminDropdownRef} className="relative flex items-center space-x-2 text-right ml-2">
               <span
                 className="text-gray-700 font-semibold cursor-pointer text-sm hidden sm:inline"
                 onClick={() => setDropdownOpen(!dropdownOpen)}

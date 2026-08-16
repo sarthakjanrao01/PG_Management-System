@@ -45,7 +45,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children 
 
   if (!normalizedAllowed.includes(userRole)) {
     if (userRole === "superadmin") {
-      return <Navigate to="/superadmin/dashboard" replace />;
+      // Super Admin has global superuser access across all management portals
+      return <>{children}</>;
     } else if (userRole === "owner" || userRole === "pgowner" || userRole === "admin") {
       return <Navigate to="/owner/dashboard" replace />;
     } else if (userRole === "maid") {
