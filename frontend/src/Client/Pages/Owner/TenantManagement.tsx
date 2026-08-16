@@ -3,6 +3,7 @@ import { getLoggedInUser } from "../../../Shared/Store/LoginAuthStore";
 import { fetchPgsByRegisterId } from "../../../Shared/Store/PgAuthStore";
 import { axiosInstance } from "../../../Shared/Lib/axios";
 import Loading from "../../../Shared/Components/Loading";
+import toast from "react-hot-toast";
 
 interface PgItem {
   _id: string;
@@ -76,15 +77,44 @@ const TenantManagement: React.FC = () => {
     }
   };
 
-  const handleVacate = async (tenancyId: string) => {
-    if (!confirm("Are you sure you want to mark this tenant as vacated?")) return;
-    try {
-      await axiosInstance.put(`/tenancy/vacate/${tenancyId}`);
-      loadTenants(selectedPgId);
-      loadRooms(selectedPgId);
-    } catch (err) {
-      console.error("Error vacating tenant:", err);
-    }
+  const handleVacate = (tenancyId: string, tenantName: string = "Tenant") => {
+    toast(
+      (t) => (
+        <div className="flex flex-col gap-3 p-1 font-sans">
+          <p className="font-black text-rose-600 text-sm">Vacate Tenant {tenantName}?</p>
+          <p className="text-xs text-slate-600">
+            Are you sure you want to vacate {tenantName}? This will mark their tenancy as vacated and free up their bed capacity.
+          </p>
+          <div className="flex justify-end gap-2 mt-1">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1.5 text-xs bg-slate-100 font-semibold rounded-lg text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                toast.dismiss(t.id);
+                const toastId = toast.loading(`Vacating ${tenantName}...`);
+                try {
+                  await axiosInstance.put(`/tenancy/vacate/${tenancyId}`);
+                  toast.success(`Tenant ${tenantName} marked as vacated!`, { id: toastId });
+                  loadTenants(selectedPgId);
+                  loadRooms(selectedPgId);
+                } catch (err) {
+                  console.error("Error vacating tenant:", err);
+                  toast.error("Failed to vacate tenant.", { id: toastId });
+                }
+              }}
+              className="px-3 py-1.5 text-xs bg-rose-600 font-bold rounded-lg text-white hover:bg-rose-700 transition cursor-pointer"
+            >
+              Confirm Vacate
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: 8000 }
+    );
   };
 
   if (loading) return <Loading />;
@@ -171,7 +201,7 @@ const TenantManagement: React.FC = () => {
                         <td className="p-4 text-right">
                           {t.status === "Active" && (
                             <button
-                              onClick={() => handleVacate(t._id)}
+                              onClick={() => handleVacate(t._id, u?.name || "Tenant")}
                               className="text-xs bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold px-3 py-1.5 rounded-lg transition"
                             >
                               Vacate Tenant

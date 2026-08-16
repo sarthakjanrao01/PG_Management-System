@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import toast from "react-hot-toast";
 import { getLoggedInUser } from "../../../Shared/Store/LoginAuthStore";
 import { axiosInstance } from "../../../Shared/Lib/axios";
 import Loading from "../../../Shared/Components/Loading";
 import SlideOverDrawer from "../../../Shared/Components/SlideOverDrawer";
+import { FiSearch, FiTrash2 } from "react-icons/fi";
 
 interface ComplaintItem {
   _id: string;
@@ -27,11 +28,27 @@ const OwnerComplaints: React.FC = () => {
   const [actionNote, setActionNote] = useState("");
   const [updating, setUpdating] = useState(false);
 
+  // Search & Filter state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "accepted" | "resolved">("all");
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
   // Multi-selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadComplaints();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const loadComplaints = async () => {
@@ -50,6 +67,30 @@ const OwnerComplaints: React.FC = () => {
     }
   };
 
+  // Instant Filter & Search logic
+  const filteredComplaints = useMemo(() => {
+    return complaints.filter((c) => {
+      const query = searchTerm.toLowerCase().trim();
+      const user = c.userDetail?.[0];
+      const room = c.roomDetail?.[0];
+
+      const matchesSearch =
+        !query ||
+        c.title.toLowerCase().includes(query) ||
+        c.category.toLowerCase().includes(query) ||
+        (user?.name || "").toLowerCase().includes(query) ||
+        (room?.room_no || "").toLowerCase().includes(query);
+
+      if (!matchesSearch) return false;
+
+      if (filterStatus === "pending") return c.status === "Pending";
+      if (filterStatus === "accepted") return c.status === "Accepted";
+      if (filterStatus === "resolved") return c.status === "Resolved";
+
+      return true;
+    });
+  }, [complaints, searchTerm, filterStatus]);
+
   const handleToggleSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedIds((prev) =>
@@ -58,10 +99,10 @@ const OwnerComplaints: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === complaints.length) {
+    if (selectedIds.length === filteredComplaints.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(complaints.map((c) => c._id));
+      setSelectedIds(filteredComplaints.map((c) => c._id));
     }
   };
 
@@ -94,7 +135,8 @@ const OwnerComplaints: React.FC = () => {
     }
   };
 
-  const handleDeleteSingle = (id: string, title: string) => {
+  const handleDeleteSingle = (id: string, title: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     toast((t) => (
       <div className="flex flex-col gap-3 p-1">
         <p className="font-bold text-slate-800 text-sm">Delete Complaint "{title}"?</p>
@@ -205,27 +247,29 @@ const OwnerComplaints: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 pt-20 pb-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-800">Room Issues & Complaints</h1>
+            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Room Issues & Complaints</h1>
             <p className="text-slate-500 text-sm mt-1">
-              Review tenant maintenance complaints. Select individual or all complaints to delete.
+              Review tenant maintenance complaints. Select individual or all complaints to manage.
             </p>
           </div>
 
           {complaints.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
               {selectedIds.length > 0 && (
                 <button
                   onClick={handleDeleteSelected}
-                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow transition"
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-3.5 py-1.5 rounded-lg text-xs transition shadow-sm flex items-center gap-1.5"
                 >
+                  <FiTrash2 className="text-sm" />
                   Delete Selected ({selectedIds.length})
                 </button>
               )}
               <button
                 onClick={handleDeleteAll}
-                className="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-4 py-2 rounded-xl text-xs transition border border-rose-200 shadow-xs"
+                className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-3.5 py-1.5 rounded-lg text-xs transition border border-rose-200"
               >
                 Delete All Complaints
               </button>
@@ -233,98 +277,211 @@ const OwnerComplaints: React.FC = () => {
           )}
         </div>
 
+        {/* Filter & Search Toolbar */}
         {complaints.length > 0 && (
-          <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 mb-4 shadow-xs">
-            <label className="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-slate-700">
+          <div className="bg-white rounded-xl p-3.5 shadow-sm border border-slate-200 mb-4 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-72">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
               <input
-                type="checkbox"
-                checked={selectedIds.length === complaints.length && complaints.length > 0}
-                onChange={handleSelectAll}
-                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search issue title, tenant, room..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-8 py-2 text-xs text-slate-800 focus:bg-white focus:border-blue-500 outline-none transition"
               />
-              Select All ({complaints.length} Issues)
-            </label>
-            <span className="text-xs text-slate-400">
-              {selectedIds.length} item(s) selected
-            </span>
-          </div>
-        )}
-
-        {complaints.length === 0 ? (
-          <div className="bg-white p-12 text-center rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-700">No Complaints Logged</h3>
-            <p className="text-sm text-slate-500 mt-1">There are currently no active room issues or maintenance notes.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {complaints.map((c) => {
-              const user = c.userDetail?.[0];
-              const room = c.roomDetail?.[0];
-              const isChecked = selectedIds.includes(c._id);
-
-              return (
-                <div
-                  key={c._id}
-                  onClick={() => handleOpenComplaintDrawer(c)}
-                  className={`p-6 rounded-xl border transition cursor-pointer flex flex-col sm:flex-row justify-between sm:items-center gap-4 group ${
-                    isChecked
-                      ? "bg-blue-50/60 border-blue-400 ring-1 ring-blue-400/30"
-                      : "bg-white border-slate-200 shadow-sm hover:shadow-md"
-                  }`}
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400 hover:text-slate-600 bg-slate-200 px-1 py-0.5 rounded"
                 >
-                  <div className="flex items-start gap-4">
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onClick={(e) => handleToggleSelect(c._id, e)}
-                      onChange={() => {}}
-                      className="mt-1 w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-xs font-semibold uppercase text-blue-600">{c.category}</span>
-                        {room && <span className="text-xs font-bold text-slate-500">Room {room.room_no}</span>}
-                        <span
-                          className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${
-                            c.status === "Resolved"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : c.status === "Accepted"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {c.status}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-bold text-slate-800 mt-1.5 group-hover:text-blue-600 transition">
-                        {c.title}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">Raised by {user?.name || "Tenant"}</p>
-                    </div>
-                  </div>
+                  Clear
+                </button>
+              )}
+            </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-3 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
-                    <span className="text-xs text-slate-400">
-                      {new Date(c.createdAt).toLocaleDateString()}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSingle(c._id, c.title);
-                      }}
-                      className="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-3 py-2 rounded-xl text-xs transition"
-                    >
-                      Delete
-                    </button>
-                    <button className="bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white font-bold px-4 py-2 rounded-xl text-xs transition">
-                      Review & Resolve
-                    </button>
+            {/* Expandable Filter Dropdown Button */}
+            <div className="relative" ref={filterRef}>
+              <button
+                type="button"
+                onClick={() => setFilterDropdownOpen(!filterDropdownOpen)}
+                className="w-full sm:w-auto bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 font-semibold px-4 py-2 rounded-lg text-xs transition flex items-center justify-between sm:justify-start gap-2 shadow-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                  <span>Filter Issues</span>
+                  {filterStatus !== "all" && (
+                    <span className="bg-blue-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">1</span>
+                  )}
+                </div>
+                <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${filterDropdownOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu with Checkboxes */}
+              {filterDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">Filter Options</div>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={filterStatus === "all"}
+                        onChange={() => setFilterStatus("all")}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                      />
+                      <span>All Issues</span>
+                    </label>
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={filterStatus === "pending"}
+                        onChange={() => setFilterStatus(filterStatus === "pending" ? "all" : "pending")}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                      />
+                      <span>Pending Only</span>
+                    </label>
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={filterStatus === "accepted"}
+                        onChange={() => setFilterStatus(filterStatus === "accepted" ? "all" : "accepted")}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                      />
+                      <span>Accepted Only</span>
+                    </label>
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={filterStatus === "resolved"}
+                        onChange={() => setFilterStatus(filterStatus === "resolved" ? "all" : "resolved")}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                      />
+                      <span>Resolved Only</span>
+                    </label>
                   </div>
                 </div>
-              );
-            })}
+              )}
+            </div>
           </div>
         )}
+
+        {/* Classic Clean Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          {filteredComplaints.length === 0 ? (
+            <div className="p-10 text-center text-slate-500 text-sm">
+              <h3 className="text-base font-bold text-slate-700">No Complaints Found</h3>
+              <p className="text-xs text-slate-500 mt-1">There are no active room issues matching your current filter.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                    <th className="p-3.5 pl-5 w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.length === filteredComplaints.length && filteredComplaints.length > 0}
+                        onChange={handleSelectAll}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                      />
+                    </th>
+                    <th className="p-3.5">Issue Title & Category</th>
+                    <th className="p-3.5">Room No</th>
+                    <th className="p-3.5">Raised By</th>
+                    <th className="p-3.5">Date Logged</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5 text-right pr-5">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredComplaints.map((c) => {
+                    const user = c.userDetail?.[0];
+                    const room = c.roomDetail?.[0];
+                    const isChecked = selectedIds.includes(c._id);
+
+                    return (
+                      <tr
+                        key={c._id}
+                        onClick={() => handleOpenComplaintDrawer(c)}
+                        className={`hover:bg-slate-50 transition cursor-pointer group ${
+                          isChecked ? "bg-blue-50/40" : ""
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <td className="p-3.5 pl-5" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => handleToggleSelect(c._id, e as any)}
+                            className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                          />
+                        </td>
+
+                        {/* Title & Category */}
+                        <td className="p-3.5">
+                          <div className="font-semibold text-slate-800 group-hover:text-blue-600 transition">
+                            {c.title}
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+                            {c.category}
+                          </span>
+                        </td>
+
+                        {/* Room No */}
+                        <td className="p-3.5 font-semibold text-slate-700">
+                          {room ? `Room ${room.room_no}` : "N/A"}
+                        </td>
+
+                        {/* Raised By */}
+                        <td className="p-3.5">
+                          <div className="font-medium text-slate-800">{user?.name || "Tenant"}</div>
+                          {user?.email && <div className="text-xs text-slate-400">{user.email}</div>}
+                        </td>
+
+                        {/* Date Logged */}
+                        <td className="p-3.5 text-slate-600 font-medium">
+                          {new Date(c.createdAt).toLocaleDateString()}
+                        </td>
+
+                        {/* Status */}
+                        <td className="p-3.5">
+                          <span
+                            className={`inline-block text-[11px] font-medium px-2.5 py-0.5 rounded ${
+                              c.status === "Resolved"
+                                ? "bg-emerald-50 text-emerald-700"
+                                : c.status === "Accepted"
+                                ? "bg-blue-50 text-blue-700"
+                                : "bg-amber-50 text-amber-700"
+                            }`}
+                          >
+                            {c.status}
+                          </span>
+                        </td>
+
+                        {/* Action */}
+                        <td className="p-3.5 text-right pr-5 space-x-2">
+                          <button
+                            onClick={(e) => handleDeleteSingle(c._id, c.title, e)}
+                            className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition"
+                          >
+                            Delete
+                          </button>
+                          <button className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition inline-flex items-center gap-1">
+                            Review
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right Side Slide-Over Drawer */}
@@ -363,7 +520,7 @@ const OwnerComplaints: React.FC = () => {
                   placeholder="Add note for the tenant..."
                   value={actionNote}
                   onChange={(e) => setActionNote(e.target.value)}
-                  className="w-full border border-slate-300 rounded-xl p-3 text-sm"
+                  className="w-full border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-500"
                 />
               </div>
 

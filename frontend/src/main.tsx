@@ -57,6 +57,8 @@ import TenantManagement from "./Client/Pages/Owner/TenantManagement.tsx";
 import MessManagementOwner from "./Client/Pages/Owner/MessManagementOwner.tsx";
 import MaidManagementOwner from "./Client/Pages/Owner/MaidManagementOwner.tsx";
 import OwnerComplaints from "./Client/Pages/Owner/OwnerComplaints.tsx";
+import QuickListOwner from "./Client/Pages/Owner/QuickListOwner.tsx";
+
 
 // User Modules
 import UserDashboard from "./Client/Pages/User/UserDashboard.tsx";
@@ -208,6 +210,15 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: "/owner/quick-list",
+        element: (
+          <ProtectedRoute allowedRoles={["owner", "pgowner", "admin"]}>
+            <QuickListOwner />
+          </ProtectedRoute>
+        ),
+      },
+
       // User Routes
       {
         path: "/user/dashboard",

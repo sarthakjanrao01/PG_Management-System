@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import toast from "react-hot-toast";
 import { getLoggedInUser } from "../../../Shared/Store/LoginAuthStore";
 import { axiosInstance } from "../../../Shared/Lib/axios";
 import Loading from "../../../Shared/Components/Loading";
 import SlideOverDrawer from "../../../Shared/Components/SlideOverDrawer";
+import { FiSearch, FiPrinter, FiTrash2 } from "react-icons/fi";
 
 interface PaymentRecord {
   _id: string;
@@ -17,10 +18,12 @@ interface PaymentRecord {
 const UserHistory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadHistory();
@@ -31,8 +34,16 @@ const UserHistory: React.FC = () => {
       const user = await getLoggedInUser();
       if (user) {
         setUserId(user._id);
-        const res = await axiosInstance.get(`/pgpayment/user/${user._id}`).catch(() => ({ data: [] }));
-        setPayments(res.data || []);
+        const role = (user.role || "").toLowerCase();
+        if (role === "superadmin") {
+          setIsSuperAdmin(true);
+          const res = await axiosInstance.get("/pgpayment/all").catch(() => ({ data: [] }));
+          setPayments(res.data || []);
+        } else {
+          setIsSuperAdmin(false);
+          const res = await axiosInstance.get(`/pgpayment/user/${user._id}`).catch(() => ({ data: [] }));
+          setPayments(res.data || []);
+        }
       }
     } catch (err) {
       console.error("Error loading payment history:", err);
@@ -41,9 +52,33 @@ const UserHistory: React.FC = () => {
     }
   };
 
+  const filteredPayments = useMemo(() => {
+    return payments.filter((p) => {
+      const query = searchTerm.toLowerCase().trim();
+      if (!query) return true;
+      const payId = (p.razorpay_payment_id || p._id).toLowerCase();
+      const orderId = (p.razorpay_order_id || "").toLowerCase();
+      return payId.includes(query) || orderId.includes(query);
+    });
+  }, [payments, searchTerm]);
+
   const handleOpenPaymentDrawer = (payment: PaymentRecord) => {
     setSelectedPayment(payment);
     setDrawerOpen(true);
+  };
+
+  const handleDeleteSinglePayment = async (paymentId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const toastId = toast.loading("Deleting payment record...");
+    try {
+      await axiosInstance.delete(`/pgpayment/${paymentId}`);
+      toast.success("Payment record deleted successfully!", { id: toastId });
+      setPayments((prev) => prev.filter((p) => p._id !== paymentId));
+      setDrawerOpen(false);
+    } catch (err) {
+      console.error("Error deleting payment record:", err);
+      toast.error("Failed to delete payment record.", { id: toastId });
+    }
   };
 
   const handlePrintReceipt = () => {
@@ -60,7 +95,7 @@ const UserHistory: React.FC = () => {
         <head>
           <title>Payment Receipt - ${selectedPayment.razorpay_payment_id || selectedPayment._id}</title>
           <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; max-width: 600px; margin: 0 auto; }
+            body { font-family: 'Manrope', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; max-width: 600px; margin: 0 auto; }
             .header { border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 20px; text-align: center; }
             .title { font-size: 24px; font-weight: 800; color: #1e293b; margin: 0; }
             .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
@@ -90,12 +125,12 @@ const UserHistory: React.FC = () => {
               <td class="value">${selectedPayment.razorpay_payment_id || selectedPayment._id}</td>
             </tr>
             <tr>
-              <td class="label">Razorpay Order ID</td>
+              <td class="label">Order ID</td>
               <td class="value">${selectedPayment.razorpay_order_id || "N/A"}</td>
             </tr>
             <tr>
-              <td class="label">Payment Status</td>
-              <td class="value" style="color: #16a34a;">SUCCESS / VERIFIED</td>
+              <td class="label">Amount Paid</td>
+              <td class="value">₹${(selectedPayment.amount || 0).toLocaleString()}</td>
             </tr>
             <tr>
               <td class="label">Payment Date & Time</td>
@@ -119,11 +154,10 @@ const UserHistory: React.FC = () => {
   };
 
   const handleClearAllHistory = async () => {
-    if (!userId) return;
     toast((t) => (
-      <div className="flex flex-col gap-3 p-1">
-        <p className="font-black text-rose-600 text-sm">Delete All History?</p>
-        <p className="text-xs text-slate-600">Are you sure you want to delete all payment history from the database?</p>
+      <div className="flex flex-col gap-3 p-1 font-sans">
+        <p className="font-black text-rose-600 text-sm">Clear All Payment History?</p>
+        <p className="text-xs text-slate-600">Are you sure you want to delete payment history from the database?</p>
         <div className="flex justify-end gap-2 mt-1">
           <button
             onClick={() => toast.dismiss(t.id)}
@@ -137,8 +171,12 @@ const UserHistory: React.FC = () => {
               setClearing(true);
               const toastId = toast.loading("Clearing payment history...");
               try {
-                await axiosInstance.delete(`/pgpayment/user/${userId}/clear`);
-                toast.success("All payment history deleted from database successfully!", { id: toastId });
+                if (isSuperAdmin) {
+                  await axiosInstance.delete("/pgpayment/clear-all");
+                } else {
+                  await axiosInstance.delete(`/pgpayment/user/${userId}/clear`);
+                }
+                toast.success("Payment history cleared successfully!", { id: toastId });
                 setPayments([]);
                 setDrawerOpen(false);
               } catch (err) {
@@ -162,65 +200,122 @@ const UserHistory: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 pt-20 pb-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold text-slate-800">Booking & Payment History</h1>
+            <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">
+              {isSuperAdmin ? "System Payments Log (Super Admin)" : "Booking & Payment History"}
+            </h1>
             <p className="text-slate-500 text-sm mt-1">
-              Complete log of payments made for your room bookings. Click any record to view details & print receipt PDF.
+              {isSuperAdmin
+                ? "Global log of all room booking payments across all properties. Click any record to manage or print PDF."
+                : "Complete log of payments made for your room bookings. Click any record to view details & print receipt PDF."}
             </p>
           </div>
           {payments.length > 0 && (
             <button
               onClick={handleClearAllHistory}
               disabled={clearing}
-              className="bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-4 py-2.5 rounded-xl text-sm transition border border-rose-200 shadow-xs disabled:opacity-50"
+              className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold px-3.5 py-1.5 rounded-lg text-xs transition border border-rose-200 shadow-xs disabled:opacity-50 flex items-center gap-1.5"
             >
+              <FiTrash2 />
               {clearing ? "Deleting..." : "Clear All History"}
             </button>
           )}
         </div>
 
-        {payments.length === 0 ? (
-          <div className="bg-white p-12 text-center rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-700">No Payment History Found</h3>
-            <p className="text-sm text-slate-500 mt-1">Once you complete room payments, your receipts will appear here.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {payments.map((p) => (
-              <div
-                key={p._id}
-                onClick={() => handleOpenPaymentDrawer(p)}
-                className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition cursor-pointer flex flex-col sm:flex-row justify-between sm:items-center gap-4 group"
-              >
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full uppercase">
-                      Payment Confirmed
-                    </span>
-                    <span className="text-xs font-mono text-slate-400">
-                      {new Date(p.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-800 mt-2 group-hover:text-blue-600 transition">
-                    Transaction ID: {p.razorpay_payment_id || p._id}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Order ID: {p.razorpay_order_id || "N/A"}</p>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
-                  <div className="text-left sm:text-right">
-                    <span className="text-xs font-semibold uppercase text-slate-400">Amount Paid</span>
-                    <p className="text-xl font-black text-emerald-600">₹{(p.amount || 0).toLocaleString()}</p>
-                  </div>
-                  <button className="bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white font-bold px-4 py-2 rounded-xl text-xs transition">
-                    Receipt Details
-                  </button>
-                </div>
-              </div>
-            ))}
+        {/* Search Input Toolbar */}
+        {payments.length > 0 && (
+          <div className="bg-white rounded-xl p-3.5 shadow-sm border border-slate-200 mb-4 flex items-center justify-between">
+            <div className="relative w-full sm:w-80">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search transaction ID or order ID..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-8 py-2 text-xs text-slate-800 focus:bg-white focus:border-blue-500 outline-none transition"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-slate-400 hover:text-slate-600 bg-slate-200 px-1 py-0.5 rounded"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         )}
+
+        {/* Classic Clean Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          {filteredPayments.length === 0 ? (
+            <div className="p-10 text-center text-slate-500 text-sm">
+              <h3 className="text-base font-bold text-slate-700">No Payment History Found</h3>
+              <p className="text-xs text-slate-500 mt-1">Once room payments are recorded, receipts will appear here.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                    <th className="p-3.5 pl-5">Transaction / Payment ID</th>
+                    <th className="p-3.5">Order ID</th>
+                    <th className="p-3.5">Payment Date</th>
+                    <th className="p-3.5">Amount Paid</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5 text-right pr-5">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredPayments.map((p) => (
+                    <tr
+                      key={p._id}
+                      onClick={() => handleOpenPaymentDrawer(p)}
+                      className="hover:bg-slate-50 transition cursor-pointer group"
+                    >
+                      <td className="p-3.5 pl-5 font-mono text-xs font-bold text-slate-800 group-hover:text-purple-600 transition">
+                        {p.razorpay_payment_id || p._id}
+                      </td>
+                      <td className="p-3.5 font-mono text-xs text-slate-500">
+                        {p.razorpay_order_id || "N/A"}
+                      </td>
+                      <td className="p-3.5 text-slate-600 font-medium">
+                        {new Date(p.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="p-3.5 font-bold text-slate-800">
+                        ₹{(p.amount || 0).toLocaleString()}
+                      </td>
+                      <td className="p-3.5">
+                        <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                          Confirmed
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-right pr-5" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenPaymentDrawer(p)}
+                            className="text-xs font-semibold text-purple-600 hover:text-purple-800 transition"
+                          >
+                            Receipt Details
+                          </button>
+                          {isSuperAdmin && (
+                            <button
+                              onClick={(e) => handleDeleteSinglePayment(p._id, e)}
+                              className="text-xs font-semibold text-rose-600 hover:text-rose-800 transition"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right Side Slide-Over Drawer */}
@@ -232,7 +327,7 @@ const UserHistory: React.FC = () => {
       >
         {selectedPayment && (
           <div className="space-y-6">
-            <div className="bg-emerald-50/70 p-5 rounded-xl border border-emerald-100">
+            <div className="bg-emerald-50 p-5 rounded-xl border border-emerald-100">
               <span className="text-xs font-bold text-emerald-700 uppercase">Successful Transaction</span>
               <div className="mt-2 text-3xl font-black text-emerald-600">
                 ₹{(selectedPayment.amount || 0).toLocaleString()}
@@ -255,18 +350,28 @@ const UserHistory: React.FC = () => {
                 </div>
                 <div className="flex justify-between p-3 bg-slate-50 rounded-lg">
                   <span className="text-slate-400">Status</span>
-                  <span className="font-bold text-emerald-600 uppercase">Verified</span>
+                  <span className="font-bold text-emerald-600 uppercase">Verified & Paid</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-100 space-y-3">
+            <div className="pt-6 border-t border-slate-100 space-y-2">
               <button
                 onClick={handlePrintReceipt}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl text-sm shadow-md transition flex items-center justify-center gap-2"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm shadow transition flex items-center justify-center gap-2"
               >
-                🖨️ Print / Save PDF Receipt
+                <FiPrinter className="text-base" />
+                Print / Save PDF Receipt
               </button>
+              {isSuperAdmin && (
+                <button
+                  onClick={() => handleDeleteSinglePayment(selectedPayment._id)}
+                  className="w-full bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold py-2.5 rounded-xl text-xs transition border border-rose-200 flex items-center justify-center gap-1.5"
+                >
+                  <FiTrash2 />
+                  Delete Payment Record from Database
+                </button>
+              )}
             </div>
           </div>
         )}

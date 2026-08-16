@@ -1,5 +1,6 @@
 import { RequestHandler } from "express";
 import RoomModel from "../Models/Room.model";
+import TenancyModel from "../Models/Tenancy.model";
 import PgModel from "../Models/Pg.model";
 import mongoose from "mongoose";
 
@@ -11,7 +12,33 @@ export const getRoomsByPgId: RequestHandler = async (req, res, next) => {
       query = { pg_id: pgId };
     }
     const rooms = await RoomModel.find(query).sort({ room_no: 1 });
-    res.status(200).json(rooms);
+
+    // Self-healing check: ensure room occupied_count & status match actual active tenancies in database
+    const syncedRooms = await Promise.all(
+      rooms.map(async (room) => {
+        const activeCount = await TenancyModel.countDocuments({
+          room_id: room._id,
+          status: "Active",
+        });
+
+        let expectedStatus: "Vacant" | "Partially Occupied" | "Fully Occupied" = "Vacant";
+        if (activeCount >= room.capacity) {
+          expectedStatus = "Fully Occupied";
+        } else if (activeCount > 0) {
+          expectedStatus = "Partially Occupied";
+        }
+
+        if (room.occupied_count !== activeCount || room.status !== expectedStatus) {
+          room.occupied_count = activeCount;
+          room.status = expectedStatus;
+          await room.save();
+        }
+
+        return room;
+      })
+    );
+
+    res.status(200).json(syncedRooms);
   } catch (error) {
     next(error);
   }

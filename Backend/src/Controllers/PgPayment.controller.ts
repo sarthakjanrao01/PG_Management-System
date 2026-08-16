@@ -27,6 +27,34 @@ export const getPaymentsByUser: RequestHandler = async (req, res, next) => {
   }
 };
 
+export const getAllPayments: RequestHandler = async (req, res, next) => {
+  try {
+    const payments = await PgPaymentModel.find().sort({ createdAt: -1 });
+    res.status(200).json(payments);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deletePayment: RequestHandler = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await PgPaymentModel.findByIdAndDelete(id);
+    res.status(200).json({ message: "Payment record deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const clearAllPayments: RequestHandler = async (req, res, next) => {
+  try {
+    await PgPaymentModel.deleteMany({});
+    res.status(200).json({ message: "All system payment history cleared successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const clearUserPaymentHistory: RequestHandler = async (req, res, next) => {
   try {
     const { userId } = req.params;
